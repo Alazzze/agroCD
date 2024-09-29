@@ -1,2 +1,2 @@
-# agroCD
-agroCD
+# argoCD
+argoCD

@@ -16,9 +16,16 @@ spec:
     spec:
       containers:
       - name: hello-world
-        image: hello-world-nginx:latest  
+        image: nginx:latest
         ports:
         - containerPort: 80
+        volumeMounts:
+        - name: html-volume
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: html-volume
+        configMap:
+          name: hello-world-html
 ---
 apiVersion: v1
 kind: Service
@@ -32,3 +39,36 @@ spec:
       port: 80
       targetPort: 80
   type: LoadBalancer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hello-world-html
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Hello World</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                text-align: center;
+                margin-top: 50px;
+                background-color: #f0f8ff;
+            }
+            h1 {
+                color: #007BFF;
+            }
+            p {
+                font-size: 18px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Welcome to My Hello World App!</h1>
+        <p>This is a simple NGINX server serving a custom HTML page.</p>
+    </body>
+    </html>

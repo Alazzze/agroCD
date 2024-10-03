@@ -17,7 +17,7 @@ spec:
           image: wordpress:latest
           env:
             - name: WORDPRESS_DB_HOST
-              value: 35.232.207.216
+              value: "35.232.207.216"
             - name: WORDPRESS_DB_USER
               value: "wordpress"
             - name: WORDPRESS_DB_PASSWORD

@@ -21,6 +21,51 @@ terraform {
   required_version = ">= 1.0.0"
 }
 
+# Змінні
+variable "project_id" {
+  type        = string
+  description = "The ID of the Google Cloud project"
+}
+
+variable "region" {
+  type        = string
+  description = "The region to deploy resources in"
+}
+
+variable "zones" {
+  type        = list(string)
+  description = "The zones where the resources will be created"
+}
+
+variable "cluster_name" {
+  type        = string
+  description = "The name of the GKE cluster"
+}
+
+variable "wordpress_db_password" {
+  type        = string
+  description = "Password for WordPress database"
+  sensitive   = true
+}
+
+variable "postgres_db_password" {
+  type        = string
+  description = "Password for PostgreSQL database"
+  sensitive   = true
+}
+
+variable "argocd_admin_password" {
+  type        = string
+  description = "Admin password for ArgoCD"
+  sensitive   = true
+}
+
+variable "grafana_admin_password" {
+  type        = string
+  description = "Admin password for Grafana"
+  sensitive   = true
+}
+
 # Налаштування провайдера Google
 provider "google" {
   project = var.project_id
@@ -49,12 +94,6 @@ provider "kubectl" {
   load_config_file       = false
 }
 
-resource "null_resource" "set_kube_timeout" {
-  provisioner "local-exec" {
-    command = "export KUBE_CLIENT_TIMEOUT=300"
-  }
-}
-
 data "google_client_config" "default" {}
 
 # Увімкнення необхідних API
@@ -70,34 +109,6 @@ resource "google_project_service" "services" {
 
   disable_on_destroy = false
 }
-
-
-# IAM конфігурація
-resource "google_project_iam_member" "user_roles" {
-  for_each = toset([
-    "roles/file.editor",
-    "roles/cloudscheduler.admin",
-    "roles/cloudsql.admin",
-    "roles/compute.admin",
-    "roles/compute.networkAdmin",
-    "roles/compute.securityAdmin",
-    "roles/compute.viewer",
-    "roles/editor",
-    "roles/container.admin",
-    "roles/container.clusterAdmin",
-    "roles/container.developer",
-    "roles/container.viewer",
-    "roles/monitoring.metricWriter",
-    "roles/iam.serviceAccountUser",
-    "roles/stackdriver.resourceMetadata.writer",
-    "roles/storage.admin"
-  ])
-
-  project = var.project_id
-  role    = each.key
-  member  = "user:Alazze91@gmail.com"
-}
-
 
 # VPC
 resource "google_compute_network" "vpc_network" {
@@ -149,19 +160,19 @@ resource "google_compute_firewall" "allow-external" {
 
 # GKE Кластер
 module "gke" {
-  source                     = "terraform-google-modules/kubernetes-engine/google"
-  version                    = "33.0.4"
-  project_id                 = var.project_id
-  name                       = var.cluster_name
-  region                     = var.region
-  zones                      = var.zones
-  network                    = google_compute_network.vpc_network.name
-  subnetwork                 = google_compute_subnetwork.subnet.name
-  ip_range_pods              = "gke-pods-range"
-  ip_range_services          = "gke-services-range"
-  create_service_account     = false
-  remove_default_node_pool   = true
-  initial_node_count         = 1
+  source                   = "terraform-google-modules/kubernetes-engine/google"
+  version                  = "33.0.4"
+  project_id               = var.project_id
+  name                     = var.cluster_name
+  region                   = var.region
+  zones                    = var.zones
+  network                  = google_compute_network.vpc_network.name
+  subnetwork               = google_compute_subnetwork.subnet.name
+  ip_range_pods            = "gke-pods-range"
+  ip_range_services        = "gke-services-range"
+  create_service_account   = false
+  remove_default_node_pool = true
+  initial_node_count       = 1
   node_pools = [
     {
       name               = "default-node-pool"
@@ -209,7 +220,7 @@ resource "google_sql_database_instance" "mysql_instance" {
       }
     }
   }
-    deletion_protection = false
+  deletion_protection = false
 }
 
 resource "google_sql_database" "wordpress_db" {
@@ -313,14 +324,7 @@ resource "google_cloud_scheduler_job" "postgres_backup" {
 }
 
 # Kubernetes ресурси
-resource "time_sleep" "wait_for_kubernetes" {
-  depends_on = [module.gke]
-  create_duration = "90s"
-}
-
 resource "kubernetes_persistent_volume" "wordpress_pv" {
-  depends_on = [time_sleep.wait_for_kubernetes, null_resource.set_kube_timeout]
-
   metadata {
     name = "wordpress-pv"
   }
@@ -353,7 +357,6 @@ resource "kubernetes_persistent_volume_claim" "wordpress_pvc" {
     volume_name = kubernetes_persistent_volume.wordpress_pv.metadata[0].name
     storage_class_name = "wordpress"
   }
-  depends_on = [time_sleep.wait_for_kubernetes, null_resource.set_kube_timeout, kubernetes_persistent_volume.wordpress_pv]
 }
 
 resource "kubernetes_deployment" "wordpress" {
@@ -514,11 +517,6 @@ resource "helm_release" "argocd" {
   }
 }
 
-resource "time_sleep" "wait_for_argocd" {
-  depends_on = [helm_release.argocd]
-  create_duration = "90s"
-}
-
 resource "kubectl_manifest" "argocd_application" {
   yaml_body = <<YAML
 apiVersion: argoproj.io/v1alpha1
@@ -541,7 +539,7 @@ spec:
       selfHeal: true
 YAML
 
-  depends_on = [time_sleep.wait_for_argocd]
+  depends_on = [helm_release.argocd]
 }
 
 # Grafana
@@ -574,19 +572,43 @@ resource "helm_release" "grafana" {
   }
 }
 
-# Отримання даних про сервіси
-data "kubernetes_service" "grafana" {
-  metadata {
-    name      = "grafana"
-    namespace = "monitoring"
-  }
-  depends_on = [helm_release.grafana]
+# Outputs
+output "kubernetes_cluster_name" {
+  value       = module.gke.name
+  description = "GKE Cluster Name"
 }
 
-data "kubernetes_service" "argocd" {
-  metadata {
-    name      = "argocd-server"
-    namespace = "argocd"
-  }
-  depends_on = [helm_release.argocd]
+output "kubernetes_cluster_host" {
+  value       = module.gke.endpoint
+  description = "GKE Cluster Host"
+}
+
+output "wordpress_ip" {
+  value       = kubernetes_service.wordpress.status[0].load_balancer[0].ingress[0].ip
+  description = "WordPress LoadBalancer IP"
+}
+
+output "phpmyadmin_ip" {
+  value       = kubernetes_service.phpmyadmin.status[0].load_balancer[0].ingress[0].ip
+  description = "phpMyAdmin LoadBalancer IP"
+}
+
+output "argocd_server_url" {
+  value       = "https://${kubernetes_service.argocd.status[0].load_balancer[0].ingress[0].ip}"
+  description = "URL для доступу до сервера ArgoCD"
+}
+
+output "grafana_ip" {
+  value       = kubernetes_service.grafana.status[0].load_balancer[0].ingress[0].ip
+  description = "IP-адреса для доступу до Grafana"
+}
+
+output "mysql_instance_connection_name" {
+  value       = google_sql_database_instance.mysql_instance.connection_name
+  description = "MySQL instance connection name"
+}
+
+output "postgres_instance_connection_name" {
+  value       = google_sql_database_instance.postgres_instance.connection_name
+  description = "PostgreSQL instance connection name"
 }

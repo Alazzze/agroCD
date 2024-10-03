@@ -1,2 +1,0 @@
-# argoCD
-argoCD

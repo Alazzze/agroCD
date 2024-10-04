@@ -17,71 +17,49 @@ spec:
         image: wordpress:latest
         env:
         - name: WORDPRESS_DB_HOST
-          value: "mysql-service:3306"  
+          value: mysql-instance  
         - name: WORDPRESS_DB_USER
           valueFrom:
             secretKeyRef:
               name: wordpress-secret
-              key: username  
+              key: username
         - name: WORDPRESS_DB_PASSWORD
           valueFrom:
-            secretKeyRef:
+            secretKeyRef:  
               name: wordpress-secret
-              key: password 
+              key: password
         - name: WORDPRESS_DB_NAME
-          value: "wordpress"  
+          value: wordpress
         ports:
         - containerPort: 80
         volumeMounts:
         - name: wordpress-persistent-storage
           mountPath: /var/www/html
-        readinessProbe:
-          httpGet:
-            path: /wp-admin/install.php
-            port: 80
-          periodSeconds: 10
-          failureThreshold: 5
-        livenessProbe:
-          httpGet:
-            path: /wp-login.php
-            port: 80
-          periodSeconds: 10
-          failureThreshold: 5
-      - name: cloud-sql-proxy
-        image: gcr.io/cloudsql-docker/gce-proxy:1.33.1
-        command:
-        - "/cloud_sql_proxy"
-        - "-instances=artful-bonito-436711-i7:us-central1:mysql-instance=tcp:3306"
-        volumeMounts:
-        - name: cloudsql-instance-credentials
-          mountPath: /secrets/cloudsql
-          readOnly: true
-        resources:
-          requests:
-            cpu: 100m
-            memory: 100Mi
-          limits:
-            cpu: 200m
-            memory: 200Mi
       volumes:
       - name: wordpress-persistent-storage
         persistentVolumeClaim:
           claimName: wordpress-pvc
-      - name: cloudsql-instance-credentials
-        secret:
-          secretName: cloudsql-instance-credentials
+      
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cloudsql-instance-credentials
-type: Opaque
 
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+spec:
+  selector: 
+    app: wordpress
+  type: LoadBalancer  
+  ports:
+    - port: 80
+      targetPort: 80
+      
 ---
+      
 apiVersion: v1
 kind: Secret
 metadata:
-  name: wordpress-secret
+  name: wordpress-secret  
 type: Opaque
 stringData:
   username: wordpress

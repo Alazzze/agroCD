@@ -1,7 +1,22 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wordpress-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: wordpress
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: wordpress
+  labels:
+    app: wordpress
 spec:
   replicas: 1
   selector:
@@ -17,35 +32,44 @@ spec:
         image: wordpress:latest
         env:
         - name: WORDPRESS_DB_HOST
-          value:  "35.232.207.216" 
+          value: "mysql-instance.us-central1.cloudsql.artful-bonito-436711-i7.com"
         - name: WORDPRESS_DB_USER
-          valueFrom:
-            secretKeyRef:
-              name: wordpress-secret
-              key: username
+          value: wordpress
         - name: WORDPRESS_DB_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: wordpress-secret
+              name: wordpress-db-secrets
               key: password
+        - name: WORDPRESS_DB_NAME
+          value: wordpress
         ports:
         - containerPort: 80
         volumeMounts:
-        - mountPath: /var/www/html
-          name: wordpress-storage
+        - name: wordpress-persistent-storage
+          mountPath: /var/www/html
       volumes:
-      - name: wordpress-storage
+      - name: wordpress-persistent-storage
         persistentVolumeClaim:
           claimName: wordpress-pvc
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: wordpress-service
+  name: wordpress
 spec:
-  type: LoadBalancer
-  ports:
-  - port: 80
-    targetPort: 80
   selector:
     app: wordpress
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wordpress-db-secrets
+type: Opaque
+stringData:
+  username: wordpress
+  password: danceteam747

@@ -56,6 +56,13 @@ spec:
         - name: cloudsql-instance-credentials
           mountPath: /secrets/cloudsql
           readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 200m
+            memory: 200Mi
       volumes:
       - name: wordpress-persistent-storage
         persistentVolumeClaim:
@@ -65,14 +72,31 @@ spec:
           secretName: cloudsql-instance-credentials
 ---
 apiVersion: v1
-kind: Service
+kind: Secret
 metadata:
-  name: wordpress
-spec:
-  selector:
-    app: wordpress
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
-  type: LoadBalancer
+  name: cloudsql-instance-credentials
+type: Opaque
+stringData:
+  credentials.json: |
+    {
+      "type": "service_account",
+      "project_id": "artful-bonito-436711-i7",
+      "private_key_id": "77ccab47699f96e1efb8d477125830bd93538424",
+      "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDdjtxCa7kQoY1h\n1UBmwax743KTVjGtPqO5O65KZoQKkZyiBdcarRLvcWaAqQg9N+y5MTyPj+qRvaTW\nl+HA8kPZi6LxCefqZxb6tjae8y7pYA37mUZx+ik9zu59yzNp+OworcpsofoP6M8z\npWtTFtuaGXjPnWZODbsQJSDekmZ69sXTKnHlN4Rm38UWZgXyLdWRVO3gUoXI82f1\n9PKjIJ/CkDRX4/ypQPfjG+M0bhNuhxao+Fq+rdzUlEH245mpZaxxTtJk+PnOEphU\nUs468QKaglJ8u12zJLvIqlSQR/N692/QKoU6Ctg/CvLiX4ZM9wxgKQv1eFt7P7wU\nUNBK5dS7AgMBAAECggEABzWRVDX2ISTomVDblhxiNOvLPCEXX7hEko/vFWutizx+\nuMTw4WTVU2ZAvBoD8x4BPWttOYyoyNI/bV4m0eTwMUF6bVZxre5p0IGiWFy4X46p\nFdFAeg/2TJURrJUymJWpdY9mIU/J97+PEnKlAeCiB6shg7vu6sZGmnlizus7m2+h\nrA4dnxOlozxvIShKuHOnv2XJA9KWY8BHnIOKReLxM96oCZ6hpeCVx/KNjDcjNMzV\nbhZHeLg2oftX4KYW66p01VK5CkGufmiG0yV2uyQU/OTinyDzwJGiAXoh05o3lQjC\nrL697Ifn4Fy2xutzy8kQtE8DAINyUEzRTnPB1z2LuQKBgQD9OuJucBcsLtD+GXN+\n3awh2sr6jUylGp+Qho2VfNGfMrrn+etOQJvGIjafHsrbm2msatC0ub/aqccwa0zo\ninG4ujnbajx/dhqQcpwC1wl12WpX04R9Zwc1MAAV+iatJA2SatraO9YNUxoOdZKP\nEZSv05buQVfWcVZSoqZRXCL9kwKBgQDf+0kSns93oBHayOqehSAj1JtOyX84Nuuo\nSBH54TIexrYoQoU5XKwytcBKxmJm81e67H90rh0VpsCZvUrA/xhi57Gz0NAyEInc\nGpTlXiopDuY3w2AvxA5UtCOirWnw5V45pq/OIkz+RQFDEOCRSJslGkKbkdwdG8hy\nPC1ui+qFOQKBgQDXTzj1o9LgG1JRqvw7s2lHQ8vwKzIu86sWbIF3yDBHxw+KbEH5\nQA/y8GY29yyOet7n3c5ky8bnuhGGBsXWttgotBa7i+Gyko3Voc0q0QHXNSwpTsxI\n/8/uFkkMZqx57LypcLdydQv0OmNeRfN+N/mPYj3jiKWRzL4T9v2pEckihwKBgCC3\njvv2UK3TpugDcyoGniQ9uRXwHvIyK4ggRufuOij+s7r7xIQVgl3B6L3DbrpFD2qR\ngyijCkKQYg/S86lvWbuQxodSmCbH/as2AsviTlxC/ePlWRaBF+rNiWsI07HJf1MC\ngymkHwUBRWbrfzIZnff0dwhMbQ+fcE8ndSdxrqcZAoGAEcwMuYIjFS9cewDCOTJQ\ngqpdHugjaKAOpOj5owCUbUA1OTE6YscRNXiCiBmOxzYixMzD2gRA2qPsNtYkmSIT\nU2Ky8tk7zTADskposkYUPh9l8XJ2e1J6MFl0WsYjDbtlkroqqz7CfMwtGdmdwNnu\nUJFRsGPhC+AUmW79TJoG+m0=\n-----END PRIVATE KEY-----\n",
+      "client_email": "tf-gke-gke-cluster-p7wn@artful-bonito-436711-i7.iam.gserviceaccount.com",
+      "client_id": "109837145541909223142",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/tf-gke-gke-cluster-p7wn%40artful-bonito-436711-i7.iam.gserviceaccount.com",
+      "universe_domain": "googleapis.com"
+    }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wordpress-secret
+type: Opaque
+stringData:
+  username: wordpress
+  password: danceteam747
